@@ -18,13 +18,36 @@ export default function AuthPage() {
 
   async function submit() {
     setError(null);
+    const u = username.trim();
+    const p = password;
+    const a = adminCode.trim();
+
+    if (!u) {
+      setError("Username is required.");
+      return;
+    }
+    if (!p) {
+      setError("Password is required.");
+      return;
+    }
+    if (tab === "signup") {
+      if (u.length < 3) {
+        setError("Username must be at least 3 characters.");
+        return;
+      }
+      if (p.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const path = tab === "login" ? "/api/auth/login" : "/api/auth/signup";
       const body =
         tab === "login"
-          ? { username, password }
-          : { username, password, admin_code: adminCode || null };
+          ? { username: u, password: p }
+          : { username: u, password: p, admin_code: a ? a : null };
 
       const res = await apiFetch<AuthResponse>(path, { method: "POST", json: body });
       setAuth(res.access_token, res.user);

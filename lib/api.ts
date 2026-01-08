@@ -25,6 +25,16 @@ export class ApiError extends Error {
   }
 }
 
+function formatFastApiValidation(detail: any): string | null {
+  // FastAPI 422 format: { detail: [{ loc: [...], msg: "...", type: "..." }, ...] }
+  if (!Array.isArray(detail)) return null;
+  const first = detail[0];
+  if (!first) return null;
+  const loc = Array.isArray(first.loc) ? first.loc.join(".") : "";
+  const msg = typeof first.msg === "string" ? first.msg : "Invalid input";
+  return loc ? `${msg} (${loc})` : msg;
+}
+
 export async function apiFetch<T>(
   path: string,
   opts: RequestInit & { json?: unknown } = {}
@@ -54,6 +64,8 @@ export async function apiFetch<T>(
         const detail =
           typeof data?.detail === "string"
             ? data.detail
+            : Array.isArray(data?.detail)
+              ? formatFastApiValidation(data.detail) || undefined
             : typeof data?.message === "string"
               ? data.message
               : undefined;
