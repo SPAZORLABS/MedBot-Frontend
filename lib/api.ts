@@ -2,6 +2,17 @@ import { getToken } from "@/lib/auth";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+export class ApiError extends Error {
+  status: number;
+  detail?: string;
+  constructor(message: string, status: number, detail?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   opts: RequestInit & { json?: unknown } = {}
@@ -23,8 +34,30 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
+    const contentType = res.headers.get("content-type") || "";
+    // Prefer JSON error payloads (FastAPI uses {"detail": "..."}).
+    if (contentType.includes("application/json")) {
+      try {
+        const data: any = await res.json();
+        const detail =
+          typeof data?.detail === "string"
+            ? data.detail
+            : typeof data?.message === "string"
+              ? data.message
+              : undefined;
+        throw new ApiError(detail || `Request failed (${res.status})`, res.status, detail);
+      } catch {
+        // Fall through to text parsing
+      }
+    }
+
     const text = await res.text().catch(() => "");
-    throw new Error(text || `Request failed (${res.status})`);
+    // If server returned an HTML page (e.g. 404), don't dump it into the UI.
+    if (text.trim().startsWith("<!DOCTYPE html") || contentType.includes("text/html")) {
+      throw new ApiError(`Request failed (${res.status})`, res.status);
+    }
+    const msg = text.length > 200 ? `${text.slice(0, 200)}…` : text;
+    throw new ApiError(msg || `Request failed (${res.status})`, res.status);
   }
   return (await res.json()) as T;
 }

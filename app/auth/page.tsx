@@ -30,7 +30,15 @@ export default function AuthPage() {
       setAuth(res.access_token, res.user);
       router.replace("/landing");
     } catch (e: any) {
-      setError(String(e?.message || e));
+      const msg = String(e?.message || e);
+      // Friendly auth errors
+      if (msg.toLowerCase().includes("invalid username or password")) {
+        setError("Invalid username or password.");
+      } else if (msg.toLowerCase().includes("username already exists")) {
+        setError("Username already exists. Please pick a different username.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
