@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { clearAuth, getToken, getUser, User } from "@/lib/auth";
 import { RiskGauge } from "@/components/RiskGauge";
+import Image from "next/image";
 
 type PredictionResponse = {
   risk_score: number;
@@ -88,6 +89,17 @@ export default function DashboardPage() {
     setUser(getUser());
   }, [router]);
 
+  // Auto-redirect to ADR Predictions tab when prediction is set
+  useEffect(() => {
+    if (prediction && tab !== "ADR Predictions") {
+      setTab("ADR Predictions");
+      // Smooth scroll to top after tab switch
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 150);
+    }
+  }, [prediction, tab]);
+
   const stats = useMemo(() => {
     const patients = prediction ? 1 : 0;
     const medications = (patientData.selected_drugs || []).length;
@@ -105,7 +117,12 @@ export default function DashboardPage() {
         json: { patient_data: patientData }
       });
       setPrediction(res);
-      setTab("ADR Predictions");
+      // Automatically switch to ADR Predictions tab after prediction completes
+      setTimeout(() => {
+        setTab("ADR Predictions");
+        // Smooth scroll to top of predictions section
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -125,7 +142,12 @@ export default function DashboardPage() {
         body: form
       });
       setPrediction(res);
-      setTab("ADR Predictions");
+      // Automatically switch to ADR Predictions tab after prediction completes
+      setTimeout(() => {
+        setTab("ADR Predictions");
+        // Smooth scroll to top of predictions section
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -172,7 +194,10 @@ export default function DashboardPage() {
   return (
     <div className="dash-shell">
       <aside className="sidebar">
-        <div className="sidebar-title">👤 {user?.username || "User"}</div>
+        <div className="sidebar-title">
+          <Image src="/user-Stroke-Rounded.png" alt="User" width={20} height={20} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          {user?.username || "User"}
+        </div>
         <div className="sidebar-caption">Role: {(user?.role || "user").toUpperCase()}</div>
 
         <div style={{ marginTop: "1rem" }}>
@@ -200,7 +225,9 @@ export default function DashboardPage() {
       <main className="content">
         <div className="app-header-row">
           <div className="app-header-left">
-            <div className="app-logo">🧠</div>
+            <div className="app-logo">
+              <Image src="/ai-brain-02-Stroke-Rounded.png" alt="AI-CPA" width={32} height={32} style={{ filter: 'brightness(0) invert(1)' }} />
+            </div>
             <div>
               <div className="app-title">AI-CPA</div>
               <div className="app-subtitle">Clinical Pharmacist Assistant</div>
@@ -281,7 +308,12 @@ export default function DashboardPage() {
                         onClick={() => uploadAndPredict(uploadMethod === "csv" ? "csv" : "json")}
                         disabled={predicting || !uploadFile}
                       >
-                        {predicting ? "Running AI Analysis..." : `🔍 Predict ADR Risk from ${uploadMethod.toUpperCase()}`}
+                        {predicting ? "Running AI Analysis..." : (
+                          <>
+                            <Image src="/search-01-Stroke-Rounded.png" alt="Search" width={18} height={18} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                            Predict ADR Risk from {uploadMethod.toUpperCase()}
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -467,7 +499,8 @@ export default function DashboardPage() {
                             setMedName("");
                           }}
                         >
-                          ➕ Add Drug
+                          <Image src="/plus-sign-square-Stroke-Rounded.png" alt="Add" width={18} height={18} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                          Add Drug
                         </button>
                       </div>
                     </div>
@@ -477,7 +510,10 @@ export default function DashboardPage() {
                       <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.4rem" }}>
                         {(patientData.selected_drugs || []).map((d: string, idx: number) => (
                           <div key={idx} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
-                            <div>💊 {d}</div>
+                            <div>
+                              <Image src="/medicine-02-Stroke-Rounded.png" alt="Medicine" width={18} height={18} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                              {d}
+                            </div>
                             <button
                               className="sidebar-btn"
                               onClick={() => {
@@ -485,8 +521,9 @@ export default function DashboardPage() {
                                 next.splice(idx, 1);
                                 setPatientData({ ...patientData, selected_drugs: next });
                               }}
+                              style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
-                              ❌
+                              <Image src="/cancel-square-Stroke-Rounded.png" alt="Remove" width={18} height={18} />
                             </button>
                           </div>
                         ))}
@@ -497,7 +534,12 @@ export default function DashboardPage() {
 
                 <div style={{ marginTop: "1.25rem" }}>
                   <button className="btn-primary" onClick={runPredictionJSON} disabled={predicting}>
-                    {predicting ? "Running AI Analysis..." : "🚀 Predict ADR Risk"}
+                    {predicting ? "Running AI Analysis..." : (
+                      <>
+                        <Image src="/rocket-01-Stroke-Rounded.png" alt="Predict" width={18} height={18} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                        Predict ADR Risk
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -509,7 +551,10 @@ export default function DashboardPage() {
                   <div>No prediction yet. Go to Patients tab and run a prediction first.</div>
                 ) : (
                   <>
-                    <h3 style={{ marginTop: 0 }}>🎯 Real-time ADR Risk Prediction</h3>
+                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Image src="/target-02-Stroke-Rounded.png" alt="Target" width={24} height={24} />
+                      Real-time ADR Risk Prediction
+                    </h3>
                     <div className="row2">
                       <div>
                         <RiskGauge riskScore={prediction.risk_score} />
@@ -531,7 +576,10 @@ export default function DashboardPage() {
                     </div>
 
                     <hr style={{ margin: "1rem 0" }} />
-                    <h3>💊 Drug-Specific ADR Analysis</h3>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Image src="/medicine-02-Stroke-Rounded.png" alt="Medicine" width={24} height={24} />
+                      Drug-Specific ADR Analysis
+                    </h3>
                     {prediction.drug_analysis?.top_drugs?.length ? (
                       <div>
                         {prediction.drug_analysis.top_drugs.map((item: any, idx: number) => (
@@ -547,7 +595,10 @@ export default function DashboardPage() {
                     )}
 
                     <hr style={{ margin: "1rem 0" }} />
-                    <h3>🔬 Model Explanation (SHAP)</h3>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Image src="/microscope-Stroke-Rounded.png" alt="Microscope" width={24} height={24} />
+                      Model Explanation (SHAP)
+                    </h3>
                     {prediction.shap_top_contributors?.length ? (
                       <div style={{ display: "grid", gap: "0.35rem" }}>
                         {prediction.shap_top_contributors.slice(0, 10).map((c, idx) => (
@@ -561,7 +612,10 @@ export default function DashboardPage() {
                     )}
 
                     <hr style={{ margin: "1rem 0" }} />
-                    <h3>🏥 Clinical Recommendations</h3>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Image src="/hospital-02-Stroke-Rounded.png" alt="Hospital" width={24} height={24} />
+                      Clinical Recommendations
+                    </h3>
                     <div style={{ display: "grid", gap: "0.35rem" }}>
                       {(prediction.recommendations || []).map((r, idx) => (
                         <div key={idx}>• {r}</div>
@@ -571,14 +625,18 @@ export default function DashboardPage() {
                     {prediction.ai_recommendations_md ? (
                       <>
                         <hr style={{ margin: "1rem 0" }} />
-                        <h3>🤖 AI Pharmacist Insights (Powered by Gemini)</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Image src="/robot-02-Stroke-Rounded.png" alt="AI" width={24} height={24} />
+                          AI Pharmacist Insights (Powered by Gemini)
+                        </h3>
                         <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}>{prediction.ai_recommendations_md}</pre>
                       </>
                     ) : null}
 
                     <div style={{ marginTop: "1rem" }}>
                       <button className="btn-primary" onClick={saveToHistory}>
-                        💾 Save to History
+                        <Image src="/floppy-disk-Stroke-Rounded.png" alt="Save" width={18} height={18} style={{ display: 'inline-block', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                        Save to History
                       </button>
                     </div>
                   </>
@@ -696,7 +754,10 @@ export default function DashboardPage() {
 
         {view === "admin" ? (
           <div className="panel">
-            <h3 style={{ marginTop: 0 }}>🛡️ Admin Dashboard</h3>
+            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Image src="/security-lock-Stroke-Rounded.png" alt="Security" width={24} height={24} />
+              Admin Dashboard
+            </h3>
             {!isAdmin ? (
               <div>Access Denied.</div>
             ) : (
