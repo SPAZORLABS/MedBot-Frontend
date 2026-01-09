@@ -229,7 +229,7 @@ export default function AuthPage() {
           </motion.button>
 
           <div className="hint">
-            After login you'll see the same landing + dashboard flow as the Streamlit app.
+            After login you'll see the landing page and dashboard.
           </div>
         </motion.div>
       </motion.div>
