@@ -38,6 +38,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Select Dropdown Styling */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Constrain select dropdown list width */
+select option {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Landing Page Container */
 .landing-page {
   min-height: 100vh;
@@ -665,7 +679,8 @@ body {
   font-family: var(--font-inter);
 }
 
-.field input {
+.field input,
+.field select {
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   padding: 0.875rem 1rem;
