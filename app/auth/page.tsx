@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { setAuth } from "@/lib/auth";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import Image from "next/image";
 
 type AuthResponse = { access_token: string; user: { id: number; username: string; role: string } };
@@ -69,15 +69,11 @@ export default function AuthPage() {
     }
   }
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
+    visible: { 
+      opacity: 1, 
       y: 0,
-      transition: {
-        duration: 0.6,
-        ease: [0.22, 1, 0.36, 1],
-      },
     },
   };
 
@@ -123,6 +119,10 @@ export default function AuthPage() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
+        transition={{
+          duration: 0.6,
+          ease: "easeOut",
+        }}
       >
         <motion.div
           className="auth-card"
