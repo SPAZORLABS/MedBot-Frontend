@@ -13,30 +13,30 @@ const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 // Simple markdown to HTML converter for AI recommendations
 function renderMarkdown(markdown: string): string {
   if (!markdown) return "";
-  
+
   let html = markdown;
-  
+
   // Split into lines for processing
   const lines = html.split('\n');
   const processedLines: string[] = [];
   let inList = false;
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     // Check if line is a bullet point (starts with * or -)
     if (line.match(/^[\*\-]\s+/)) {
       if (!inList) {
         processedLines.push('<ul>');
         inList = true;
       }
-      
+
       // Remove bullet marker and process content
       let content = line.replace(/^[\*\-]\s+/, '');
-      
+
       // Convert bold **text** to <strong>text</strong> (handle multiple bold sections)
       content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      
+
       processedLines.push(`<li>${content}</li>`);
     } else {
       // If we were in a list, close it
@@ -44,7 +44,7 @@ function renderMarkdown(markdown: string): string {
         processedLines.push('</ul>');
         inList = false;
       }
-      
+
       // Process non-list lines
       if (line) {
         // Convert bold **text** to <strong>text</strong>
@@ -56,18 +56,18 @@ function renderMarkdown(markdown: string): string {
       }
     }
   }
-  
+
   // Close list if still open
   if (inList) {
     processedLines.push('</ul>');
   }
-  
+
   html = processedLines.join('\n');
-  
+
   // Clean up empty paragraphs
   html = html.replace(/<p><\/p>/g, '');
   html = html.replace(/<p>\s*<\/p>/g, '');
-  
+
   return html;
 }
 
@@ -170,7 +170,7 @@ export default function DashboardPage() {
   const [drugHepatotoxic, setDrugHepatotoxic] = useState(false);
   const [drugQTProlonging, setDrugQTProlonging] = useState(false);
   const [drugHighRisk, setDrugHighRisk] = useState(false);
-  
+
   // Workflow efficiency state
   const [feedbackUsefulness, setFeedbackUsefulness] = useState<string>("Moderately Useful");
   const [feedbackAccuracy, setFeedbackAccuracy] = useState<string>("Neutral");
@@ -187,32 +187,51 @@ export default function DashboardPage() {
   // History/admin
   const [history, setHistory] = useState<RecordOut[]>([]);
   const [adminRecords, setAdminRecords] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState<any | null>(null);
+
+  interface GroupMetrics {
+    Group: string;
+    auc_roc: number;
+    precision: number;
+    recall: number;
+    f1: number;
+    accuracy: number;
+    balanced_accuracy: number;
+    auc_pr: number;
+    matthews_corrcoef: number;
+  }
+
+  interface MetricsData {
+    overall: GroupMetrics;
+    groups: GroupMetrics[];
+  }
+
+  const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [featureImportance, setFeatureImportance] = useState<{ feature: string; importance: number }[]>([]);
   const [explainabilityTab, setExplainabilityTab] = useState<"global" | "patient">("patient");
 
   useEffect(() => {
     if (!getToken()) router.replace("/auth");
     setUser(getUser());
-    
-    // Load drug options
-    apiFetch<{ drugs: string[] }>("/api/predictions/drugs")
-      .then((res) => {
-        console.log("Drugs API response:", res);
-        if (res.drugs && res.drugs.length > 0) {
-          const options = ["Select a drug...", ...res.drugs, "Other"];
+
+    // Load drug options from static JSON file
+    fetch("/drugs.json")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Drugs loaded from JSON:", data);
+        if (data.drugs && data.drugs.length > 0) {
+          const options = ["Select a drug...", ...data.drugs, "Other"];
           console.log("Setting drug options:", options.length, "items");
           setDrugOptions(options);
         } else {
-          console.warn("No drugs returned from API, response:", res);
+          console.warn("No drugs loaded from JSON");
           setDrugOptions(["Select a drug...", "Other"]);
         }
       })
       .catch((err) => {
-        console.error("Failed to load drugs:", err);
+        console.error("Failed to load drugs from JSON:", err);
         setDrugOptions(["Select a drug...", "Other"]);
       });
-    
+
     // Load feature importance for global explanation
     apiFetch<{ features: { feature: string; importance: number }[] }>("/api/predictions/feature-importance")
       .then((res) => {
@@ -223,9 +242,16 @@ export default function DashboardPage() {
       .catch((err) => {
         console.error("Failed to load feature importance:", err);
       });
-    
+
     // Auto-load metrics for Bias Audit tab
-    loadMetrics();
+    fetch("/metrics.json")
+      .then((res) => res.json())
+      .then((data) => {
+        setMetrics(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load metrics:", err);
+      });
   }, [router]);
 
   // Auto-redirect to ADR Predictions tab only once when a new prediction is made
@@ -240,14 +266,14 @@ export default function DashboardPage() {
       }, 150);
     }
   }, [prediction, tab, hasRedirected]);
-  
+
   // Reset redirect flag when prediction is cleared
   useEffect(() => {
     if (!prediction) {
       setHasRedirected(false);
     }
   }, [prediction]);
-  
+
 
   const stats = useMemo(() => {
     const patients = prediction ? 1 : 0;
@@ -371,7 +397,8 @@ export default function DashboardPage() {
   }
 
   async function loadMetrics() {
-    const m = await apiFetch<any>("/api/metrics/performance");
+    const m = await fetch("/metrics.json")
+      .then((res) => res.json());
     setMetrics(m);
   }
 
@@ -1046,7 +1073,7 @@ export default function DashboardPage() {
                     <div style={{ color: "#6B7280", marginBottom: "1rem", fontSize: "0.9rem" }}>
                       Add each medication separately.
                     </div>
-                    
+
                     <div style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "1rem", background: "#f9fafb" }}>
                       <div className="row2" style={{ marginBottom: "0.75rem" }}>
                         <div className="field">
@@ -1059,7 +1086,7 @@ export default function DashboardPage() {
                                 // Will show manual input below
                               }
                             }}
-                            style={{ 
+                            style={{
                               width: "300px",
                               maxWidth: "300px"
                             }}
@@ -1089,7 +1116,7 @@ export default function DashboardPage() {
                           />
                         </div>
                       </div>
-                      
+
                       {selectedDrug === "Other" && (
                         <div className="field" style={{ marginBottom: "0.75rem" }}>
                           <label>Enter Drug Name Manually</label>
@@ -1106,7 +1133,7 @@ export default function DashboardPage() {
                           />
                         </div>
                       )}
-                      
+
                       <div className="row2" style={{ marginBottom: "0.75rem" }}>
                         <div className="field">
                           <label>Route</label>
@@ -1138,7 +1165,7 @@ export default function DashboardPage() {
                           </select>
                         </div>
                       </div>
-                      
+
                       <div className="row2" style={{ marginBottom: "0.75rem" }}>
                         <div className="field">
                           <label>Duration (days)</label>
@@ -1160,7 +1187,7 @@ export default function DashboardPage() {
                           />
                         </div>
                       </div>
-                      
+
                       <div style={{ marginBottom: "0.75rem" }}>
                         <label style={{ fontWeight: 600, marginBottom: "0.5rem", display: "block" }}>Special Flags:</label>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem" }}>
@@ -1198,7 +1225,7 @@ export default function DashboardPage() {
                           </label>
                         </div>
                       </div>
-                      
+
                       <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
                         <input
                           type="checkbox"
@@ -1210,7 +1237,7 @@ export default function DashboardPage() {
                           High Risk / Narrow Therapeutic Index
                         </span>
                       </label>
-                      
+
                       <button
                         className="btn-primary"
                         onClick={() => {
@@ -1224,12 +1251,12 @@ export default function DashboardPage() {
                             // Use the exact generic name from dropdown (already in correct format: "Acetaminophen", "Cisplatin", etc.)
                             drugName = selectedDrug; // No need to trim or normalize - dropdown already has correct format
                           }
-                          
+
                           if (!drugName) {
                             setError("Please select or enter a drug name");
                             return;
                           }
-                          
+
                           // Create medication object with exact generic name format (matches test_patient_risky.json)
                           const newMed = {
                             name: drugName, // Exact generic name format: "Acetaminophen", "Cisplatin", etc.
@@ -1244,7 +1271,7 @@ export default function DashboardPage() {
                             qt_prolonging: drugQTProlonging,
                             high_risk: drugHighRisk
                           };
-                          
+
                           setMedications([...medications, newMed]);
                           setSelectedDrug("Select a drug...");
                           setManualDrugName("");
@@ -1276,7 +1303,7 @@ export default function DashboardPage() {
                             if (med.nephrotoxic) flags.push("Nephro");
                             if (med.hepatotoxic) flags.push("Hepato");
                             if (med.qt_prolonging) flags.push("QT");
-                            
+
                             return (
                               <div key={idx} style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center", padding: "0.75rem", background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "6px" }}>
                                 <div style={{ flex: 1 }}>
@@ -1383,10 +1410,10 @@ export default function DashboardPage() {
                     </h3>
                     {prediction.shap_top_contributors?.length ? (
                       <div style={{ marginTop: "1rem" }}>
-                        <div style={{ 
-                          padding: "1rem", 
-                          background: "#f9fafb", 
-                          borderRadius: "8px", 
+                        <div style={{
+                          padding: "1rem",
+                          background: "#f9fafb",
+                          borderRadius: "8px",
                           border: "1px solid #e5e7eb",
                           overflowX: "auto"
                         }}>
@@ -1404,7 +1431,7 @@ export default function DashboardPage() {
                                 const featureName = c.feature
                                   .replace(/_/g, " ")
                                   .replace(/\b\w/g, (l: string) => l.toUpperCase());
-                                
+
                                 return (
                                   <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6" }}>
                                     <td style={{ padding: "0.75rem", color: "#1f2937", fontSize: "0.9rem", fontWeight: 500 }}>{featureName}</td>
@@ -1429,11 +1456,11 @@ export default function DashboardPage() {
                             </tbody>
                           </table>
                         </div>
-                        <div style={{ 
-                          marginTop: "0.75rem", 
-                          padding: "0.75rem", 
-                          background: "#f0f9ff", 
-                          borderRadius: "6px", 
+                        <div style={{
+                          marginTop: "0.75rem",
+                          padding: "0.75rem",
+                          background: "#f0f9ff",
+                          borderRadius: "6px",
                           borderLeft: "3px solid #2563EB",
                           fontSize: "0.85rem",
                           color: "#6B7280"
@@ -1442,10 +1469,10 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     ) : (
-                      <div style={{ 
-                        padding: "1rem", 
-                        background: "#fffbeb", 
-                        borderRadius: "8px", 
+                      <div style={{
+                        padding: "1rem",
+                        background: "#fffbeb",
+                        borderRadius: "8px",
                         borderLeft: "4px solid #f59e0b",
                         color: "#92400e",
                         fontSize: "0.9rem"
@@ -1460,9 +1487,9 @@ export default function DashboardPage() {
                       Clinical Recommendations
                     </h3>
                     {(prediction.recommendations && prediction.recommendations.length > 0) ? (
-                      <div 
+                      <div
                         className="clinical-recommendations"
-                        style={{ 
+                        style={{
                           padding: "1rem",
                           background: "#F0F9FF",
                           borderRadius: "8px",
@@ -1477,16 +1504,16 @@ export default function DashboardPage() {
                           const processRecommendation = (text: string) => {
                             // Split by lines to handle multiline recommendations
                             const lines = text.split('\n').filter(line => line.trim());
-                            
+
                             return lines.map((line, lineIdx) => {
                               let processed = line.trim();
-                              
+
                               // Handle **bold** text (e.g., **HIGH RISK**:)
                               const boldRegex = /\*\*(.+?)\*\*/g;
                               const boldParts: Array<{ type: 'text' | 'bold'; content: string }> = [];
                               let lastIndex = 0;
                               let match;
-                              
+
                               while ((match = boldRegex.exec(processed)) !== null) {
                                 if (match.index > lastIndex) {
                                   boldParts.push({ type: 'text', content: processed.substring(lastIndex, match.index) });
@@ -1494,25 +1521,25 @@ export default function DashboardPage() {
                                 boldParts.push({ type: 'bold', content: match[1] });
                                 lastIndex = match.index + match[0].length;
                               }
-                              
+
                               if (lastIndex < processed.length) {
                                 boldParts.push({ type: 'text', content: processed.substring(lastIndex) });
                               }
-                              
+
                               // Handle bullet points (• at start of line)
                               const isBullet = processed.startsWith('•') || processed.startsWith('-');
                               const content = isBullet ? processed.replace(/^[•\-]\s*/, '') : processed;
-                              
+
                               // Check if it's a section header (ends with colon and has bold)
                               const isHeader = content.endsWith(':') && boldParts.some(p => p.type === 'bold');
-                              
+
                               if (isBullet && !isHeader) {
                                 return (
                                   <div key={lineIdx} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.5rem" }}>
                                     <span style={{ color: "#2563EB", fontWeight: "bold", marginTop: "0.2rem", flexShrink: 0 }}>•</span>
                                     <span>
                                       {boldParts.length > 0 ? (
-                                        boldParts.map((part, partIdx) => 
+                                        boldParts.map((part, partIdx) =>
                                           part.type === 'bold' ? (
                                             <strong key={partIdx} style={{ color: "#1E40AF", fontWeight: 600 }}>{part.content}</strong>
                                           ) : (
@@ -1528,7 +1555,7 @@ export default function DashboardPage() {
                               } else if (isHeader) {
                                 return (
                                   <div key={lineIdx} style={{ marginTop: lineIdx === 0 ? "0" : "0.75rem", marginBottom: "0.5rem" }}>
-                                    {boldParts.map((part, partIdx) => 
+                                    {boldParts.map((part, partIdx) =>
                                       part.type === 'bold' ? (
                                         <strong key={partIdx} style={{ color: "#1E40AF", fontWeight: 700, display: "block", marginBottom: "0.25rem" }}>{part.content}:</strong>
                                       ) : (
@@ -1541,7 +1568,7 @@ export default function DashboardPage() {
                                 return (
                                   <div key={lineIdx} style={{ marginBottom: "0.5rem" }}>
                                     {boldParts.length > 0 ? (
-                                      boldParts.map((part, partIdx) => 
+                                      boldParts.map((part, partIdx) =>
                                         part.type === 'bold' ? (
                                           <strong key={partIdx} style={{ color: "#DC2626", fontWeight: 700 }}>{part.content}</strong>
                                         ) : (
@@ -1556,7 +1583,7 @@ export default function DashboardPage() {
                               }
                             });
                           };
-                          
+
                           return (
                             <div key={idx}>
                               {processRecommendation(r)}
@@ -1565,8 +1592,8 @@ export default function DashboardPage() {
                         })}
                       </div>
                     ) : (
-                      <div style={{ 
-                        color: "#6B7280", 
+                      <div style={{
+                        color: "#6B7280",
                         fontStyle: "italic",
                         padding: "0.5rem"
                       }}>
@@ -1581,9 +1608,9 @@ export default function DashboardPage() {
                           <Image src="/robot-02-Stroke-Rounded.png" alt="AI" width={24} height={24} />
                           AI Pharmacist Insights (Powered by Gemini)
                         </h3>
-                        <div 
+                        <div
                           className="ai-recommendations"
-                          style={{ 
+                          style={{
                             fontFamily: "inherit",
                             lineHeight: "1.8",
                             color: "#374151",
@@ -1591,7 +1618,8 @@ export default function DashboardPage() {
                           }}
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(prediction.ai_recommendations_md) }}
                         />
-                        <style dangerouslySetInnerHTML={{__html: `
+                        <style dangerouslySetInnerHTML={{
+                          __html: `
                           .ai-recommendations ul {
                             list-style: none;
                             padding-left: 0;
@@ -1710,12 +1738,12 @@ export default function DashboardPage() {
                         <h4 style={{ marginTop: 0, marginBottom: "1rem" }}>Patient-Specific SHAP Analysis</h4>
                         {prediction.shap_top_contributors && prediction.shap_top_contributors.length > 0 ? (
                           <>
-                            <div style={{ 
-                              padding: "1.5rem", 
-                              background: "#f0f9ff", 
-                              borderRadius: "12px", 
-                              borderLeft: "4px solid #2563EB", 
-                              marginBottom: "2rem" 
+                            <div style={{
+                              padding: "1.5rem",
+                              background: "#f0f9ff",
+                              borderRadius: "12px",
+                              borderLeft: "4px solid #2563EB",
+                              marginBottom: "2rem"
                             }}>
                               <h4 style={{ color: "#1E40AF", marginTop: 0, marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                 <Image src="/analytics-03-Stroke-Rounded.png" alt="Analytics" width={20} height={20} />
@@ -1801,7 +1829,7 @@ export default function DashboardPage() {
                                     const featureName = contrib.feature
                                       .replace(/_/g, " ")
                                       .replace(/\b\w/g, (l: string) => l.toUpperCase());
-                                    
+
                                     return (
                                       <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6" }}>
                                         <td style={{ padding: "0.75rem", color: "#1f2937" }}>{featureName}</td>
@@ -1868,52 +1896,52 @@ export default function DashboardPage() {
             {tab === "Bias Audit" ? (
               <div className="panel">
                 <h3 style={{ marginTop: 0 }}>Model Performance & Analytics (Bias Audit)</h3>
-                
+
                 {/* Performance Metrics Section */}
                 <div style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
                   <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Image src="/analytics-03-Stroke-Rounded.png" alt="Analytics" width={20} height={20} />
                     Overall Performance Metrics
                   </h4>
-                  {metrics ? (
+                  {metrics && metrics.overall ? (
                     <>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
                         <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                           <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>AUC-ROC</div>
-                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.auc_roc || 0).toFixed(3)}</div>
+                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.auc_roc || 0).toFixed(3)}</div>
                         </div>
                         <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                           <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Precision</div>
-                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.precision || 0).toFixed(3)}</div>
+                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.precision || 0).toFixed(3)}</div>
                         </div>
                         <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                           <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Recall</div>
-                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.recall || 0).toFixed(3)}</div>
+                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.recall || 0).toFixed(3)}</div>
                         </div>
                         <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                           <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>F1-Score</div>
-                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.f1 || 0).toFixed(3)}</div>
+                          <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.f1 || 0).toFixed(3)}</div>
                         </div>
                       </div>
-                      
+
                       <div style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
                         <strong style={{ fontSize: "0.95rem", color: "#374151" }}>Additional Metrics</strong>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginTop: "0.75rem" }}>
                           <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                             <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Accuracy</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.accuracy || 0).toFixed(3)}</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.accuracy || 0).toFixed(3)}</div>
                           </div>
                           <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                             <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Balanced Accuracy</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.balanced_accuracy || 0).toFixed(3)}</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.balanced_accuracy || 0).toFixed(3)}</div>
                           </div>
                           <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                             <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>AUC-PR</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.auc_pr || 0).toFixed(3)}</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.auc_pr || 0).toFixed(3)}</div>
                           </div>
                           <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                             <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Matthews Correlation</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.matthews_corrcoef || 0).toFixed(3)}</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{Number(metrics.overall.matthews_corrcoef || 0).toFixed(3)}</div>
                           </div>
                         </div>
                       </div>
@@ -1924,7 +1952,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Confusion Matrix Section */}
                 <div style={{ marginTop: "2rem", marginBottom: "1.5rem" }}>
                   <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -1991,7 +2019,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Fairness Metrics by Demographics */}
                 <div style={{ marginTop: "2rem", marginBottom: "1.5rem" }}>
                   <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -2003,7 +2031,7 @@ export default function DashboardPage() {
                       Bias audit analysis across age, sex, and key subgroups for equitable care.
                     </div>
                   </div>
-                  
+
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                     <div>
                       <strong style={{ display: "block", marginBottom: "0.5rem" }}>Fairness by Sex</strong>
@@ -2076,14 +2104,14 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Detailed Fairness Metrics */}
                 <div style={{ marginTop: "2rem", marginBottom: "1.5rem" }}>
                   <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Image src="/document-validation-Stroke-Rounded.png" alt="Document" width={20} height={20} />
                     Detailed Fairness Metrics
                   </h4>
-                  {metrics ? (
+                  {metrics && metrics.groups ? (
                     <div style={{ overflowX: "auto", marginTop: "1rem" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", background: "#ffffff", borderRadius: "8px", overflow: "hidden", border: "1px solid #e5e7eb" }}>
                         <thead>
@@ -2096,55 +2124,15 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>Overall</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(metrics.auc_roc || 0).toFixed(3)}</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(metrics.precision || 0).toFixed(3)}</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(metrics.recall || 0).toFixed(3)}</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(metrics.f1 || 0).toFixed(3)}</td>
-                          </tr>
-                          <tr style={{ borderBottom: "1px solid #f3f4f6", background: "#fafafa" }}>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>Male</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.710</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.610</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.670</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.640</td>
-                          </tr>
-                          <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>Female</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.730</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.630</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.690</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.660</td>
-                          </tr>
-                          <tr style={{ borderBottom: "1px solid #f3f4f6", background: "#fafafa" }}>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>Age &lt; 50</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.700</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.600</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.660</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.630</td>
-                          </tr>
-                          <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>Age ≥ 50</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.740</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.640</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.700</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.670</td>
-                          </tr>
-                          <tr style={{ borderBottom: "1px solid #f3f4f6", background: "#fafafa" }}>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>With Comorbidities</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.750</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.650</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.710</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.680</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "0.75rem", color: "#1f2937" }}>Without Comorbidities</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.680</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.580</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.640</td>
-                            <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>0.610</td>
-                          </tr>
+                          {metrics.groups.map((group: GroupMetrics, idx: number) => (
+                            <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6", background: idx % 2 === 1 ? "#fafafa" : "#ffffff" }}>
+                              <td style={{ padding: "0.75rem", color: "#1f2937" }}>{group.Group}</td>
+                              <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(group.auc_roc || 0).toFixed(3)}</td>
+                              <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(group.precision || 0).toFixed(3)}</td>
+                              <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(group.recall || 0).toFixed(3)}</td>
+                              <td style={{ padding: "0.75rem", textAlign: "right", color: "#1f2937" }}>{Number(group.f1 || 0).toFixed(3)}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -2162,14 +2150,14 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-                
+
               </div>
             ) : null}
 
             {tab === "Workflow Efficiency" ? (
               <div className="panel">
                 <h3 style={{ marginTop: 0 }}>Workflow Efficiency</h3>
-                
+
                 <div style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
                   <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Image src="/database-lightning-Stroke-Rounded.png" alt="Performance" width={20} height={20} />
@@ -2190,81 +2178,11 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                
-                <div style={{ marginTop: "2rem", marginBottom: "1.5rem" }}>
-                  <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <Image src="/analytics-03-Stroke-Rounded.png" alt="Analytics" width={20} height={20} />
-                    Reduction in Alert Fatigue
-                  </h4>
-                  <div style={{ padding: "1rem", background: "#f0f9ff", borderRadius: "8px", borderLeft: "4px solid #2563EB", marginBottom: "1.5rem" }}>
-                    <div style={{ color: "#1E40AF", fontSize: "0.9rem" }}>
-                      Simulated data showing the impact of AI-CPA on reducing unnecessary alerts
-                    </div>
-                  </div>
-                  
-                  {/* Alert Fatigue Chart */}
-                  <div style={{ marginBottom: "2rem" }}>
-                    <Plot
-                      data={[
-                        {
-                          type: "scatter",
-                          mode: "lines+markers",
-                          x: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-                          y: [120, 118, 122, 125, 120, 123, 121, 119, 124, 122, 120, 123],
-                          name: "Baseline (Without AI-CPA)",
-                          line: { color: "#EF4444", width: 2 },
-                          marker: { size: 8 }
-                        },
-                        {
-                          type: "scatter",
-                          mode: "lines+markers",
-                          x: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-                          y: [120, 95, 78, 65, 58, 52, 48, 45, 42, 40, 38, 35],
-                          name: "With AI-CPA",
-                          line: { color: "#10B981", width: 2 },
-                          marker: { size: 8 }
-                        }
-                      ]}
-                      layout={{
-                        title: "Monthly Alert Volume Comparison",
-                        xaxis: { title: "Month" },
-                        yaxis: { title: "Number of Alerts" },
-                        hovermode: "x unified",
-                        height: 400,
-                        legend: {
-                          orientation: "h",
-                          yanchor: "bottom",
-                          y: 1.02,
-                          xanchor: "right",
-                          x: 1
-                        },
-                        plot_bgcolor: "rgba(0,0,0,0)",
-                        paper_bgcolor: "rgba(0,0,0,0)"
-                      }}
-                      style={{ width: "100%", height: "400px" }}
-                    />
-                  </div>
-                  
-                  {/* Alert Reduction Metrics */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "2rem" }}>
-                    <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                      <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Alert Reduction</div>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#16a34a" }}>71.5%</div>
-                      <div style={{ fontSize: "0.75rem", color: "#6B7280", marginTop: "0.25rem" }}>-88 alerts vs baseline</div>
-                    </div>
-                    <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                      <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Avg Monthly Alerts</div>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>65</div>
-                      <div style={{ fontSize: "0.75rem", color: "#6B7280", marginTop: "0.25rem" }}>-58 vs baseline</div>
-                    </div>
-                    <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                      <div style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "0.25rem" }}>Total Alerts Saved</div>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#16a34a" }}>1,056</div>
-                      <div style={{ fontSize: "0.75rem", color: "#6B7280", marginTop: "0.25rem" }}>This year</div>
-                    </div>
-                  </div>
-                </div>
-                
+
+
+                {/* Reduction in Alert Fatigue section removed as per user request */}
+
+
                 <div style={{ marginTop: "2rem", marginBottom: "1.5rem" }}>
                   <h4 style={{ marginTop: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Image src="/document-validation-Stroke-Rounded.png" alt="Feedback" width={20} height={20} />
@@ -2275,7 +2193,7 @@ export default function DashboardPage() {
                       Your feedback helps us improve the AI-CPA system and enhance clinical decision support
                     </div>
                   </div>
-                  
+
                   {feedbackSubmitted ? (
                     <div style={{ padding: "1.5rem", background: "#d1fae5", borderRadius: "12px", border: "1px solid #10b981", textAlign: "center" }}>
                       <div style={{ color: "#065f46", fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.5rem" }}>
@@ -2294,10 +2212,10 @@ export default function DashboardPage() {
                         <select
                           value={feedbackUsefulness}
                           onChange={(e) => setFeedbackUsefulness(e.target.value)}
-                          style={{ 
-                            width: "100%", 
-                            padding: "0.75rem", 
-                            border: "1px solid #e5e7eb", 
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem",
+                            border: "1px solid #e5e7eb",
                             borderRadius: "8px",
                             fontSize: "0.95rem",
                             background: "#ffffff"
@@ -2310,7 +2228,7 @@ export default function DashboardPage() {
                           <option value="Extremely Useful">Extremely Useful</option>
                         </select>
                       </div>
-                      
+
                       <div style={{ marginBottom: "1.5rem" }}>
                         <label style={{ display: "block", marginBottom: "0.75rem", fontWeight: 600, fontSize: "0.95rem" }}>
                           How accurate was the risk assessment?
@@ -2318,10 +2236,10 @@ export default function DashboardPage() {
                         <select
                           value={feedbackAccuracy}
                           onChange={(e) => setFeedbackAccuracy(e.target.value)}
-                          style={{ 
-                            width: "100%", 
-                            padding: "0.75rem", 
-                            border: "1px solid #e5e7eb", 
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem",
+                            border: "1px solid #e5e7eb",
                             borderRadius: "8px",
                             fontSize: "0.95rem",
                             background: "#ffffff"
@@ -2334,7 +2252,7 @@ export default function DashboardPage() {
                           <option value="Very Accurate">Very Accurate</option>
                         </select>
                       </div>
-                      
+
                       <div style={{ marginBottom: "1.5rem" }}>
                         <label style={{ display: "block", marginBottom: "0.75rem", fontWeight: 600, fontSize: "0.95rem" }}>
                           How would you rate the system's response time?
@@ -2342,10 +2260,10 @@ export default function DashboardPage() {
                         <select
                           value={feedbackResponseTime}
                           onChange={(e) => setFeedbackResponseTime(e.target.value)}
-                          style={{ 
-                            width: "100%", 
-                            padding: "0.75rem", 
-                            border: "1px solid #e5e7eb", 
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem",
+                            border: "1px solid #e5e7eb",
                             borderRadius: "8px",
                             fontSize: "0.95rem",
                             background: "#ffffff"
@@ -2358,7 +2276,7 @@ export default function DashboardPage() {
                           <option value="Very Fast">Very Fast</option>
                         </select>
                       </div>
-                      
+
                       <div style={{ marginBottom: "1.5rem" }}>
                         <label style={{ display: "block", marginBottom: "0.75rem", fontWeight: 600, fontSize: "0.95rem" }}>
                           How much did this prediction reduce your workload?
@@ -2366,10 +2284,10 @@ export default function DashboardPage() {
                         <select
                           value={feedbackWorkloadReduction}
                           onChange={(e) => setFeedbackWorkloadReduction(e.target.value)}
-                          style={{ 
-                            width: "100%", 
-                            padding: "0.75rem", 
-                            border: "1px solid #e5e7eb", 
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem",
+                            border: "1px solid #e5e7eb",
                             borderRadius: "8px",
                             fontSize: "0.95rem",
                             background: "#ffffff"
@@ -2382,7 +2300,7 @@ export default function DashboardPage() {
                           <option value="Major Reduction">Major Reduction</option>
                         </select>
                       </div>
-                      
+
                       <div style={{ marginBottom: "1.5rem" }}>
                         <label style={{ display: "block", marginBottom: "0.75rem", fontWeight: 600, fontSize: "0.95rem" }}>
                           Additional Comments
@@ -2391,10 +2309,10 @@ export default function DashboardPage() {
                           value={feedbackComments}
                           onChange={(e) => setFeedbackComments(e.target.value)}
                           placeholder="Share your thoughts..."
-                          style={{ 
-                            width: "100%", 
-                            padding: "0.75rem", 
-                            border: "1px solid #e5e7eb", 
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem",
+                            border: "1px solid #e5e7eb",
                             borderRadius: "8px",
                             minHeight: "100px",
                             fontFamily: "inherit",
@@ -2403,7 +2321,7 @@ export default function DashboardPage() {
                           }}
                         />
                       </div>
-                      
+
                       <button
                         onClick={submitFeedback}
                         style={{
