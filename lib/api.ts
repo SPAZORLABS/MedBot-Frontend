@@ -1,18 +1,7 @@
 import { getToken } from "@/lib/auth";
 
-function normalizeBaseUrl(raw: string): string {
-  let v = (raw || "").trim();
-  if (!v) return "http://localhost:8000";
-  // If user set it like "medbot-backend....up.railway.app", auto-prefix https://
-  if (!v.startsWith("http://") && !v.startsWith("https://")) {
-    v = `https://${v}`;
-  }
-  // Remove trailing slash to avoid double slashes in requests
-  if (v.endsWith("/")) v = v.slice(0, -1);
-  return v;
-}
-
-const BASE = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL || "");
+// Hardcoded Railway production URL
+const BASE = "https://web-production-9491d.up.railway.app";
 
 export class ApiError extends Error {
   status: number;

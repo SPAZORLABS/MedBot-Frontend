@@ -1935,7 +1935,7 @@ export default function DashboardPage() {
                     <div>
                       <div style={{ position: "relative", width: "100%", minHeight: "200px", borderRadius: 12, border: "1px solid #E5E7EB", marginTop: 8, background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <img
-                          src={`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/reports/confusion_matrix.png`}
+                          src="https://web-production-9491d.up.railway.app/reports/confusion_matrix.png"
                           alt="confusion_matrix"
                           style={{ width: "100%", borderRadius: 12, display: "block" }}
                           onError={(e) => {
@@ -1964,7 +1964,7 @@ export default function DashboardPage() {
                       <strong style={{ display: "block", marginBottom: "0.5rem" }}>ROC Curve</strong>
                       <div style={{ position: "relative", width: "100%", minHeight: "200px", borderRadius: 12, border: "1px solid #E5E7EB", marginTop: 8, background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <img
-                          src={`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/reports/roc_curve.png`}
+                          src="https://web-production-9491d.up.railway.app/reports/roc_curve.png"
                           alt="roc_curve"
                           style={{ width: "100%", borderRadius: 12, display: "block" }}
                           onError={(e) => {
@@ -2009,7 +2009,7 @@ export default function DashboardPage() {
                       <strong style={{ display: "block", marginBottom: "0.5rem" }}>Fairness by Sex</strong>
                       <div style={{ position: "relative", width: "100%", minHeight: "200px", borderRadius: 12, border: "1px solid #E5E7EB", marginTop: 8, background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <img
-                          src={`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/reports/fairness_auc.png`}
+                          src="https://web-production-9491d.up.railway.app/reports/fairness_auc.png"
                           alt="fairness_auc"
                           style={{ width: "100%", borderRadius: 12, display: "block" }}
                           onError={(e) => {
@@ -2030,7 +2030,7 @@ export default function DashboardPage() {
                       </div>
                       <div style={{ marginTop: "1rem", position: "relative", width: "100%", minHeight: "200px", borderRadius: 12, border: "1px solid #E5E7EB", background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <img
-                          src={`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/reports/fairness_f1.png`}
+                          src="https://web-production-9491d.up.railway.app/reports/fairness_f1.png"
                           alt="fairness_f1"
                           style={{ width: "100%", borderRadius: 12, display: "block" }}
                           onError={(e) => {
@@ -2054,7 +2054,7 @@ export default function DashboardPage() {
                       <strong style={{ display: "block", marginBottom: "0.5rem" }}>Calibration & Calibration by Group</strong>
                       <div style={{ position: "relative", width: "100%", minHeight: "200px", borderRadius: 12, border: "1px solid #E5E7EB", marginTop: 8, background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <img
-                          src={`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}/reports/calibration_curve.png`}
+                          src="https://web-production-9491d.up.railway.app/reports/calibration_curve.png"
                           alt="calibration_curve"
                           style={{ width: "100%", borderRadius: 12, display: "block" }}
                           onError={(e) => {
