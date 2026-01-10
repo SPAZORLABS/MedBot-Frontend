@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { getToken } from "@/lib/auth";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import Image from "next/image";
 
 export default function LandingPage() {
@@ -12,7 +12,7 @@ export default function LandingPage() {
     if (!getToken()) router.replace("/auth");
   }, [router]);
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -23,28 +23,14 @@ export default function LandingPage() {
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: {
-        duration: 0.6,
-        ease: [0.22, 1, 0.36, 1],
-      },
     },
   };
 
-  const floatingVariants = {
-    animate: {
-      y: [0, -8, 0],
-      transition: {
-        duration: 8,
-        repeat: Infinity,
-        ease: "easeInOut",
-      },
-    },
-  };
 
   const features = [
     {
@@ -129,11 +115,24 @@ export default function LandingPage() {
         initial="hidden"
         animate="visible"
       >
-        <motion.div className="hero-container" variants={itemVariants}>
+        <motion.div 
+          className="hero-container" 
+          variants={itemVariants}
+          transition={{
+            duration: 0.6,
+            ease: "easeOut",
+          }}
+        >
           <motion.div
             className="hero-logo"
-            variants={floatingVariants}
-            animate="animate"
+            animate={{
+              y: [0, -8, 0],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
           >
             <div className="hero-logo-glow">
               <Image
